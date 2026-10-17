@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node --env-file-if-exists=.env src/index.ts",
+    "dev": "node --env-file-if-exists=.env --env-file-if-exists=.env.dev src/index.ts",
     "test": "node --test",
     "typecheck": "tsc --noEmit"
   },

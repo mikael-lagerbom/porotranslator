@@ -1,8 +1,8 @@
 # porotranslator — spec
 
-Discord bot. One-way FI→EN translation between two channels via OpenAI API.
-Reads source channel, posts translation to dest channel via webhook mimicking
-the original author. English passes through unchanged.
+Discord bot bridging two channels. Source → dest: FI→EN translation via OpenAI
+API, posted via webhook mimicking the original author; English passes through
+unchanged. Dest → source: forwarded as-is (no translation), same webhook style.
 
 ## Stack
 
@@ -15,13 +15,18 @@ the original author. English passes through unchanged.
 ## Behavior
 
 1. Bot listens to `messageCreate`.
-2. Skip if: author is a bot (incl. self), channel ≠ configured source, text
+2. Route: source → dest (translated, steps 4–6), dest → source (forwarded
+   as-is, steps 5–6). Skip if: author is a bot or webhook (incl. self — also
+   prevents loops), channel is neither, either channel unset, text
    empty/whitespace-only, translation disabled (`/toggle`), or the author has
    opted out (`/optout`, stored in an `optouts` table).
-3. Enqueue message on a **serial queue** (one at a time → dest order matches
-   source).
+3. Enqueue on a **serial queue** per direction (one at a time → each target
+   channel keeps source order; forwards never wait behind a translation).
 4. Send text to OpenAI. Single call does detect + translate + passthrough.
-5. Find-or-create bot webhook in dest channel (cached in memory). Post
+5. Attachments are re-uploaded with the post (both directions); files over the
+   server's upload limit fall back to links (expire ~24h). Attachment-only
+   messages are forwarded without an API call.
+6. Find-or-create bot webhook in the target channel (cached in memory). Post
    translation with `username = author.displayName`, `avatarURL =
    author.avatarURL`.
 
@@ -45,7 +50,7 @@ the original author. English passes through unchanged.
 API down / timeout (~30s) / empty output → forward **original text** to dest
 with a `⚠️` marker prefix, and log the error. Never drop a message.
 
-Cost guards: over 10 messages/user/minute, or a backlog of 50+ queued messages,
+Cost guards: over 30 messages/user/minute, or a backlog of 50+ queued messages,
 the message is forwarded untranslated with `⚠️` instead of calling the API.
 Output capped at 4096 tokens (reasoning included).
 
@@ -97,6 +102,6 @@ cent per thousand. Bump to `gpt-6.1-sol` via `/set-model` if quality lacks.
 
 ## Explicitly out of scope (v1)
 
-Attachments, embeds copy, reply threading, edit/delete sync, two-way
+Stickers (webhooks can't send them), embeds copy, reply threading, edit/delete sync, two-way
 translation, multi-pair/multi-guild, per-author webhooks, message-mapping
 table.

@@ -9,16 +9,25 @@ export interface IncomingMessage {
   authorIsBot: boolean;
   channelId: string;
   content: string;
+  hasAttachments: boolean;
 }
 
-/** True if the message should not be translated/forwarded. */
-export function shouldSkip(msg: IncomingMessage, cfg: Config): boolean {
-  if (!cfg.enabled) return true;
-  if (msg.authorIsBot) return true;
-  if (!cfg.sourceChannel || msg.channelId !== cfg.sourceChannel) return true;
-  if (!cfg.destChannel) return true; // nowhere to post → don't enqueue
-  if (msg.content.trim().length === 0) return true;
-  return false;
+export interface Route {
+  to: string;
+  translate: boolean;
+}
+
+/**
+ * Where a message goes: source → dest translated, dest → source forwarded as-is.
+ * null = ignore. Bot/webhook authors are skipped, which also stops the two directions looping.
+ */
+export function route(msg: IncomingMessage, cfg: Config): Route | null {
+  if (!cfg.enabled || msg.authorIsBot) return null;
+  if (!cfg.sourceChannel || !cfg.destChannel) return null; // both needed for either direction
+  if (msg.content.trim().length === 0 && !msg.hasAttachments) return null;
+  if (msg.channelId === cfg.sourceChannel) return { to: cfg.destChannel, translate: true };
+  if (msg.channelId === cfg.destChannel) return { to: cfg.sourceChannel, translate: false };
+  return null;
 }
 
 /** Split text into chunks no longer than `limit`, preferring newline, then space boundaries. */

@@ -1,9 +1,10 @@
 # porotranslator
 
-Discord bot: one-way **Finnish → English** translation between two channels.
-Reads a source channel, posts the translation to a dest channel via a webhook
-that mimics the original author. English passes through unchanged. Translation
-via the OpenAI API.
+Discord bot bridging a Finnish and an English channel. Messages in the source
+(Finnish) channel are translated **Finnish → English** and posted to the dest
+channel via a webhook that mimics the original author; English passes through
+unchanged. Messages in the dest (English) channel are forwarded to the source
+channel as-is, the same way. Translation via the OpenAI API.
 
 See [SPEC.md](./SPEC.md) for the full design.
 
@@ -22,6 +23,7 @@ See [SPEC.md](./SPEC.md) for the full design.
 ```bash
 npm install          # builds the better-sqlite3 native addon
 npm start            # node runs the TypeScript directly (Node 24+)
+npm run dev          # same, but .env.dev overrides .env (e.g. a dev bot token)
 ```
 
 Docker:
@@ -38,11 +40,14 @@ from an older image that ran as root and created `config.db` as root).
 
 ## Configure (in Discord, needs Manage Server)
 
-- `/set-source #channel` — where Finnish is read
-- `/set-dest #channel` — where English is posted
+- `/set-source #channel` — the Finnish channel (read and translated; receives forwards)
+- `/set-dest #channel` — the English channel (receives translations; forwarded back)
 - `/set-model <id>` — default `gpt-6-luna`; bump to `gpt-6.1-sol` if quality lacks
 - `/toggle` — pause/resume without redeploy
 - `/status` — show current config
+
+The bot needs View Channel and Manage Webhooks in both channels (checked on
+`/set-*` and logged at startup).
 
 For everyone (no permissions needed):
 

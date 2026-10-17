@@ -23,7 +23,7 @@ export const commandDefs = [
   admin(
     new SlashCommandBuilder()
       .setName('set-dest')
-      .setDescription('Set the channel to post English translations to')
+      .setDescription('Set the English channel (receives translations, its messages are forwarded back)')
       .addChannelOption((o) =>
         o.setName('channel').setDescription('Destination channel').addChannelTypes(ChannelType.GuildText).setRequired(true),
       ) as SlashCommandBuilder,
@@ -47,7 +47,7 @@ export async function handleCommand(i: ChatInputCommandInteraction, store: Confi
     return void i.reply({
       content: out
         ? '✅ Opted out. Your messages will no longer be sent for translation or reposted. Use /optin to undo.'
-        : '✅ Opted in. Your messages will be translated again.',
+        : '✅ Opted in. Your messages will be translated and forwarded again.',
       flags: MessageFlags.Ephemeral,
     });
   }
@@ -57,22 +57,19 @@ export async function handleCommand(i: ChatInputCommandInteraction, store: Confi
   const deny = (content: string) => void i.reply({ content: `❌ ${content}`, flags: MessageFlags.Ephemeral });
   const me = i.guild.members.me!;
   switch (i.commandName) {
-    case 'set-source': {
-      const ch = i.options.getChannel('channel', true, [ChannelType.GuildText]);
-      if (ch.id === store.get().destChannel) return deny('Source and destination must differ.');
-      if (!ch.permissionsFor(me).has(PermissionFlagsBits.ViewChannel)) return deny(`I can't see ${ch}.`);
-      store.set('sourceChannel', ch.id);
-      return void i.reply({ content: '✅ Source channel set.', flags: MessageFlags.Ephemeral });
-    }
+    case 'set-source':
     case 'set-dest': {
+      const isSource = i.commandName === 'set-source';
       const ch = i.options.getChannel('channel', true, [ChannelType.GuildText]);
-      if (ch.id === store.get().sourceChannel) return deny('Source and destination must differ.');
-      // Webhook posts bypass channel send permissions, so don't let anyone target a channel they can't post in.
+      const other = isSource ? store.get().destChannel : store.get().sourceChannel;
+      if (ch.id === other) return deny('Source and destination must differ.');
+      // The bot posts into both channels by webhook (translations one way, forwards the other), and webhook
+      // posts bypass channel send permissions, so don't let anyone target a channel they can't post in.
       if (!ch.permissionsFor(i.member).has(PermissionFlagsBits.SendMessages)) return deny(`You can't post in ${ch}.`);
       if (!ch.permissionsFor(me).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageWebhooks]))
         return deny(`I need View Channel and Manage Webhooks in ${ch}.`);
-      store.set('destChannel', ch.id);
-      return void i.reply({ content: '✅ Destination channel set.', flags: MessageFlags.Ephemeral });
+      store.set(isSource ? 'sourceChannel' : 'destChannel', ch.id);
+      return void i.reply({ content: `✅ ${isSource ? 'Source' : 'Destination'} channel set.`, flags: MessageFlags.Ephemeral });
     }
     case 'set-model': {
       store.set('model', i.options.getString('model', true));

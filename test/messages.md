@@ -172,8 +172,13 @@ Loppujen lopuksi sijoituin neljänneksi ja sain kaksi boosteria palkinnoksi. Iso
 
 ## Behaviour checks (no fixed text)
 
-- **Rate limit:** 11 short Finnish messages within a minute → the 11th arrives untranslated with ⚠️.
-- **Attachment only:** an image or sticker with no text → nothing forwarded.
+- **Rate limit:** 31 short Finnish messages within a minute → the 31st arrives untranslated with ⚠️.
+- **Attachment only:** an image with no text → re-uploaded to the other channel, no ⚠️, no API call (both directions).
+- **Attachment + text:** an image with `katso tätä korttia` → translated text + the image.
+- **Spoilered image:** mark an image as spoiler → still spoilered after forwarding.
+- **Sticker only:** → nothing forwarded (webhooks can't send stickers).
 - **Reply:** reply to a message with `Joo, sama` → translated (no reply context yet, so "Yeah, same").
-- **Opt-out:** `/optout`, send a Finnish message → nothing forwarded; `/optin` → translated again.
+- **Forward back:** post `anyone up for a game tonight?` in the **dest** channel → appears in the source channel unchanged, under your name/avatar, once (no echo back to dest).
+- **Forward, no translation:** post `Moi kaikki` in the dest channel → forwarded as-is, not translated.
+- **Opt-out:** `/optout`, then post in either channel → nothing forwarded either way; `/optin` → back to normal.
 - **Toggle:** `/toggle` off, send a message → nothing forwarded; `/toggle` on again.

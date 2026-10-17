@@ -1,37 +1,45 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shouldSkip, splitMessage, stripPreamble, sanitizeUsername, hasTranslatableText, createRateLimiter } from '../src/logic.ts';
+import { route, splitMessage, stripPreamble, sanitizeUsername, hasTranslatableText, createRateLimiter } from '../src/logic.ts';
 
-// --- shouldSkip -------------------------------------------------------------
+// --- route ------------------------------------------------------------------
 
 const cfg = { sourceChannel: 'SRC', destChannel: 'DST', model: 'gpt-6-luna', enabled: true };
-
-test('skips messages from bots', () => {
-  assert.equal(shouldSkip({ authorIsBot: true, channelId: 'SRC', content: 'moi' }, cfg), true);
+const msg = (channelId: string, content = 'moi', authorIsBot = false, hasAttachments = false) => ({
+  authorIsBot,
+  channelId,
+  content,
+  hasAttachments,
 });
 
-test('skips messages not in the source channel', () => {
-  assert.equal(shouldSkip({ authorIsBot: false, channelId: 'OTHER', content: 'moi' }, cfg), true);
+test('source → dest, translated', () => {
+  assert.deepEqual(route(msg('SRC'), cfg), { to: 'DST', translate: true });
 });
 
-test('skips empty / whitespace-only messages', () => {
-  assert.equal(shouldSkip({ authorIsBot: false, channelId: 'SRC', content: '   \n ' }, cfg), true);
+test('dest → source, forwarded as-is', () => {
+  assert.deepEqual(route(msg('DST', 'hello'), cfg), { to: 'SRC', translate: false });
 });
 
-test('skips when translation disabled', () => {
-  assert.equal(shouldSkip({ authorIsBot: false, channelId: 'SRC', content: 'moi' }, { ...cfg, enabled: false }), true);
+test('ignores bots and webhooks in either channel (no loop)', () => {
+  assert.equal(route(msg('SRC', 'moi', true), cfg), null);
+  assert.equal(route(msg('DST', 'hello', true), cfg), null);
 });
 
-test('skips when source channel unset', () => {
-  assert.equal(shouldSkip({ authorIsBot: false, channelId: 'SRC', content: 'moi' }, { ...cfg, sourceChannel: null }), true);
+test('ignores other channels and empty messages', () => {
+  assert.equal(route(msg('OTHER'), cfg), null);
+  assert.equal(route(msg('SRC', '   \n '), cfg), null);
 });
 
-test('skips when dest channel unset (nowhere to post)', () => {
-  assert.equal(shouldSkip({ authorIsBot: false, channelId: 'SRC', content: 'moi' }, { ...cfg, destChannel: null }), true);
+test('routes attachment-only messages', () => {
+  assert.deepEqual(route(msg('SRC', '', false, true), cfg), { to: 'DST', translate: true });
+  assert.deepEqual(route(msg('DST', '', false, true), cfg), { to: 'SRC', translate: false });
 });
 
-test('does not skip a real message in the source channel', () => {
-  assert.equal(shouldSkip({ authorIsBot: false, channelId: 'SRC', content: 'moi' }, cfg), false);
+test('ignores everything when disabled or a channel is unset', () => {
+  assert.equal(route(msg('SRC'), { ...cfg, enabled: false }), null);
+  assert.equal(route(msg('DST'), { ...cfg, enabled: false }), null);
+  assert.equal(route(msg('SRC'), { ...cfg, destChannel: null }), null);
+  assert.equal(route(msg('DST'), { ...cfg, sourceChannel: null }), null);
 });
 
 // --- splitMessage -----------------------------------------------------------
