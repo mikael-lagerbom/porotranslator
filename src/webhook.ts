@@ -1,4 +1,4 @@
-import { type TextChannel, type Webhook, WebhookClient } from 'discord.js';
+import { DiscordAPIError, RESTJSONErrorCodes, type TextChannel, type Webhook, WebhookClient } from 'discord.js';
 import { splitMessage } from './logic.ts';
 
 const WEBHOOK_NAME = 'porotranslator';
@@ -11,7 +11,7 @@ async function getWebhook(channel: TextChannel, refresh = false): Promise<Webhoo
     if (cached) return cached;
   }
   const hooks = await channel.fetchWebhooks();
-  let hook: Webhook | undefined = hooks.find((h) => h.name === WEBHOOK_NAME && h.token != null);
+  let hook: Webhook | undefined = hooks.find((h) => h.owner?.id === channel.client.user.id && h.token != null);
   if (!hook) hook = await channel.createWebhook({ name: WEBHOOK_NAME });
 
   const client = new WebhookClient({ id: hook.id, token: hook.token! });
@@ -21,9 +21,10 @@ async function getWebhook(channel: TextChannel, refresh = false): Promise<Webhoo
 
 /**
  * Post `content` to `channel` impersonating the author, splitting if needed.
- * On send failure (e.g. the cached webhook was deleted) the cache is evicted and
- * the send is retried once with a freshly fetched/created webhook. Still failing
- * ⇒ throws, so the caller can surface the drop instead of losing it silently.
+ * If the cached webhook is gone (deleted/token reset), the cache is evicted and the
+ * send is retried once with a freshly fetched/created webhook. Other errors aren't
+ * retried here (discord.js already retries 5xx; a blind retry could double-post) ⇒
+ * throws, so the caller can surface the drop instead of losing it silently.
  */
 export async function sendAsAuthor(
   channel: TextChannel,
@@ -40,9 +41,14 @@ export async function sendAsAuthor(
     };
     try {
       await (await getWebhook(channel)).send(payload);
-    } catch {
+    } catch (err) {
+      if (!isGoneWebhook(err)) throw err;
       cache.delete(channel.id);
       await (await getWebhook(channel, true)).send(payload); // one retry; throws if it fails again
     }
   }
 }
+
+const isGoneWebhook = (err: unknown) =>
+  err instanceof DiscordAPIError &&
+  (err.code === RESTJSONErrorCodes.UnknownWebhook || err.code === RESTJSONErrorCodes.InvalidWebhookToken);

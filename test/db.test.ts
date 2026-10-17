@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import Database from 'better-sqlite3';
 import { openConfigStore } from '../src/db.ts';
+
+const tmpDb = () => join(mkdtempSync(join(tmpdir(), 'poro-')), 'config.db');
 
 test('returns defaults on a fresh store', () => {
   const store = openConfigStore(':memory:');
@@ -12,32 +18,29 @@ test('returns defaults on a fresh store', () => {
   });
 });
 
-test('persists a set value', () => {
-  const store = openConfigStore(':memory:');
+test('persists values across a reopen', () => {
+  const path = tmpDb();
+  const store = openConfigStore(path);
   store.set('sourceChannel', '123');
-  assert.equal(store.get().sourceChannel, '123');
-});
-
-test('overwrites an existing value', () => {
-  const store = openConfigStore(':memory:');
   store.set('model', 'gpt-6-luna');
-  store.set('model', 'gpt-6.1-sol');
-  assert.equal(store.get().model, 'gpt-6.1-sol');
-});
-
-test('coerces the enabled flag to a boolean', () => {
-  const store = openConfigStore(':memory:');
+  store.set('model', 'gpt-6.1-sol'); // overwrite
   store.set('enabled', false);
-  assert.equal(store.get().enabled, false);
-  store.set('enabled', true);
-  assert.equal(store.get().enabled, true);
+  store.close();
+
+  const cfg = openConfigStore(path).get();
+  assert.equal(cfg.sourceChannel, '123');
+  assert.equal(cfg.model, 'gpt-6.1-sol');
+  assert.equal(cfg.enabled, false);
 });
 
 test('ignores a malformed row instead of throwing', () => {
-  const store = openConfigStore(':memory:');
-  store.set('sourceChannel', '123');
-  store.setRaw('model', 'not-json'); // simulate a corrupt/hand-edited row
-  const cfg = store.get(); // must not throw
+  const path = tmpDb();
+  openConfigStore(path).set('sourceChannel', '123');
+  const raw = new Database(path);
+  raw.prepare("INSERT OR REPLACE INTO config (key, value) VALUES ('model', 'not-json')").run(); // corrupt/hand-edited row
+  raw.close();
+
+  const cfg = openConfigStore(path).get(); // must not throw
   assert.equal(cfg.model, 'gpt-6-luna'); // bad row falls back to default
   assert.equal(cfg.sourceChannel, '123'); // good rows still load
 });

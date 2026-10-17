@@ -44,6 +44,10 @@ the original author. English passes through unchanged.
 API down / timeout (~30s) / empty output → forward **original text** to dest
 with a `⚠️` marker prefix, and log the error. Never drop a message.
 
+Cost guards: over 10 messages/user/minute, or a backlog of 50+ queued messages,
+the message is forwarded untranslated with `⚠️` instead of calling the API.
+Output capped at 2048 tokens.
+
 ### Edge cases (v1)
 
 - **Text only.** Attachments/embeds ignored (Discord re-embeds URLs itself).

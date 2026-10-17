@@ -21,3 +21,12 @@ test('a failing task does not halt the queue', async () => {
   await q.push(async () => { order.push(2); });
   assert.deepEqual(order, [2]);
 });
+
+test('tracks pending tasks and drains', async () => {
+  const q = new SerialQueue();
+  q.push(() => tick(10));
+  q.push(() => tick(10));
+  assert.equal(q.pending, 2);
+  await q.drain();
+  assert.equal(q.pending, 0);
+});

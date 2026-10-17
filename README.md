@@ -31,6 +31,10 @@ docker compose up -d --build
 ```
 
 Config persists in SQLite under `./data/` (mounted volume in Docker).
+The container runs as uid 1000, so `./data` must be writable by it
+(`mkdir -p data && sudo chown -R 1000:1000 data`, also needed when upgrading
+from an older image that ran as root and created `config.db` as root).
+`docker compose stop` flushes queued messages untranslated (⚠️) before exiting.
 
 ## Configure (in Discord, needs Manage Server)
 

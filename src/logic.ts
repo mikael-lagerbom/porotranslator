@@ -48,11 +48,15 @@ export function hasTranslatableText(text: string): boolean {
 
 const PREAMBLE_RE = /^\s*(here is (the )?translation|translation|translated text)\s*:\s*/i;
 
-/** Strip common LLM preambles/quoting that slip past the "return only" instruction. */
-export function stripPreamble(text: string): string {
-  let out = text.trim().replace(PREAMBLE_RE, '').trim();
+/**
+ * Strip common LLM preambles/quoting that slip past the "return only" instruction.
+ * `source` is the original message: a label or quotes the user wrote themselves are kept.
+ */
+export function stripPreamble(text: string, source = ''): string {
+  let out = text.trim();
+  if (!/^\s*(käännös|translation|translated text)\s*:/i.test(source)) out = out.replace(PREAMBLE_RE, '').trim();
   // Only unwrap a *pure* wrapping quote pair. Inner quotes ⇒ real dialogue, leave it.
-  if (out.length >= 2 && out.startsWith('"') && out.endsWith('"') && !out.slice(1, -1).includes('"')) {
+  if (!source.trim().startsWith('"') && out.length >= 2 && out.startsWith('"') && out.endsWith('"') && !out.slice(1, -1).includes('"')) {
     out = out.slice(1, -1).trim();
   }
   return out;
@@ -60,8 +64,26 @@ export function stripPreamble(text: string): string {
 
 const RESERVED = /discord|clyde/gi;
 
-/** Coerce a display name into a Discord-legal webhook username, or fall back. */
-export function sanitizeUsername(name: string, fallback: string): string {
-  const cleaned = name.replace(RESERVED, '').trim().slice(0, 80);
-  return cleaned.length > 0 ? cleaned : fallback.replace(RESERVED, '').trim().slice(0, 80) || 'user';
+/** Coerce a display name into a Discord-legal webhook username. */
+export function sanitizeUsername(name: string): string {
+  // Repeat: removing one reserved word can join others into a new one ("disDISCORDcord").
+  let cleaned = name;
+  for (let prev = ''; prev !== cleaned; ) [prev, cleaned] = [cleaned, cleaned.replace(RESERVED, '')];
+  cleaned = cleaned.trim().slice(0, 80);
+  return cleaned.length > 0 ? cleaned : 'porotranslator';
+}
+
+/** Fixed-window limiter: true while `key` has made fewer than `max` calls in the current `windowMs`. */
+// ponytail: fixed window allows up to 2× max across a boundary, and one Map entry per user is never pruned —
+// fine as a cost guard for one community; switch to a sliding window if the limit must be exact.
+export function createRateLimiter(max: number, windowMs: number) {
+  const windows = new Map<string, { start: number; count: number }>();
+  return (key: string, now = Date.now()): boolean => {
+    const w = windows.get(key);
+    if (!w || now - w.start >= windowMs) {
+      windows.set(key, { start: now, count: 1 });
+      return true;
+    }
+    return ++w.count <= max;
+  };
 }

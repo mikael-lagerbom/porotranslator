@@ -2,6 +2,7 @@ services:
   porotranslator:
     build: .
     restart: unless-stopped
+    stop_grace_period: 45s # > the app's 40s drain deadline
     env_file: .env
     volumes:
-      - ./data:/app/data
+      - ./data:/app/data # must be writable by uid 1000 (the image's `node` user)

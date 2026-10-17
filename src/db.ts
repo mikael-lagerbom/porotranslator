@@ -11,8 +11,7 @@ const DEFAULTS: Config = {
 export interface ConfigStore {
   get(): Config;
   set<K extends keyof Config>(key: K, value: Config[K]): void;
-  /** Test-only: write a raw (possibly non-JSON) value to exercise corrupt rows. */
-  setRaw(key: string, value: string): void;
+  close(): void;
 }
 
 // ponytail: key/value table over a typed Config — expandable without migrations.
@@ -27,20 +26,15 @@ export function openConfigStore(path: string): ConfigStore {
   );
 
   // Load once into memory; reads hit the object, writes update both.
-  const load = (): Config => {
-    const cfg: Config = { ...DEFAULTS };
-    for (const { key, value } of readAll.all() as { key: string; value: string }[]) {
-      if (!(key in cfg)) continue;
-      try {
-        (cfg as unknown as Record<string, unknown>)[key] = JSON.parse(value);
-      } catch {
-        console.error(`config: ignoring malformed row "${key}", using default`);
-      }
+  const current: Config = { ...DEFAULTS };
+  for (const { key, value } of readAll.all() as { key: string; value: string }[]) {
+    if (!(key in current)) continue;
+    try {
+      (current as unknown as Record<string, unknown>)[key] = JSON.parse(value);
+    } catch {
+      console.error(`config: ignoring malformed row "${key}", using default`);
     }
-    return cfg;
-  };
-
-  let current = load();
+  }
 
   return {
     get: () => ({ ...current }),
@@ -48,9 +42,6 @@ export function openConfigStore(path: string): ConfigStore {
       upsert.run(key, JSON.stringify(value));
       (current as unknown as Record<string, unknown>)[key] = value;
     },
-    setRaw(key, value) {
-      upsert.run(key, value);
-      current = load();
-    },
+    close: () => db.close(),
   };
 }

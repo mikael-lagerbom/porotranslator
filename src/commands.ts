@@ -40,21 +40,26 @@ export const commandDefs = [
 
 export async function handleCommand(i: ChatInputCommandInteraction, store: ConfigStore): Promise<void> {
   // Default permissions are overridable per guild; enforce at runtime too.
-  if (!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
+  if (!i.inCachedGuild() || !i.memberPermissions.has(PermissionFlagsBits.ManageGuild))
     return void i.reply({ content: '❌ Requires Manage Server.', flags: MessageFlags.Ephemeral });
+  const deny = (content: string) => void i.reply({ content: `❌ ${content}`, flags: MessageFlags.Ephemeral });
+  const me = i.guild.members.me!;
   switch (i.commandName) {
     case 'set-source': {
-      const id = i.options.getChannel('channel', true).id;
-      if (id === store.get().destChannel)
-        return void i.reply({ content: '❌ Source and destination must differ.', flags: MessageFlags.Ephemeral });
-      store.set('sourceChannel', id);
+      const ch = i.options.getChannel('channel', true, [ChannelType.GuildText]);
+      if (ch.id === store.get().destChannel) return deny('Source and destination must differ.');
+      if (!ch.permissionsFor(me).has(PermissionFlagsBits.ViewChannel)) return deny(`I can't see ${ch}.`);
+      store.set('sourceChannel', ch.id);
       return void i.reply({ content: '✅ Source channel set.', flags: MessageFlags.Ephemeral });
     }
     case 'set-dest': {
-      const id = i.options.getChannel('channel', true).id;
-      if (id === store.get().sourceChannel)
-        return void i.reply({ content: '❌ Source and destination must differ.', flags: MessageFlags.Ephemeral });
-      store.set('destChannel', id);
+      const ch = i.options.getChannel('channel', true, [ChannelType.GuildText]);
+      if (ch.id === store.get().sourceChannel) return deny('Source and destination must differ.');
+      // Webhook posts bypass channel send permissions, so don't let anyone target a channel they can't post in.
+      if (!ch.permissionsFor(i.member).has(PermissionFlagsBits.SendMessages)) return deny(`You can't post in ${ch}.`);
+      if (!ch.permissionsFor(me).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageWebhooks]))
+        return deny(`I need View Channel and Manage Webhooks in ${ch}.`);
+      store.set('destChannel', ch.id);
       return void i.reply({ content: '✅ Destination channel set.', flags: MessageFlags.Ephemeral });
     }
     case 'set-model': {

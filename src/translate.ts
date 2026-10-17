@@ -15,6 +15,7 @@ const SYSTEM_PROMPT =
   'Return ONLY the resulting text, without the <msg> tags — no quotes, no notes, no preamble.';
 
 const TIMEOUT_MS = 30_000;
+const MAX_OUTPUT_TOKENS = 2048; // ~2× a max-length Discord message; caps runaway output
 
 /** Translate text via OpenAI. Throws on failure (caller forwards original + ⚠️). */
 export async function translate(client: OpenAI, model: string, text: string): Promise<string> {
@@ -22,6 +23,7 @@ export async function translate(client: OpenAI, model: string, text: string): Pr
     {
       model,
       temperature: 0,
+      max_completion_tokens: MAX_OUTPUT_TOKENS,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: `<msg>${text}</msg>` },
@@ -31,7 +33,7 @@ export async function translate(client: OpenAI, model: string, text: string): Pr
   );
   const choice = res.choices[0];
   if (choice?.finish_reason !== 'stop') throw new Error(`incomplete translation (finish_reason: ${choice?.finish_reason})`);
-  const out = stripPreamble((choice.message.content ?? '').replace(/^\s*<msg>|<\/msg>\s*$/g, ''));
+  const out = stripPreamble((choice.message.content ?? '').replace(/^\s*<msg>|<\/msg>\s*$/g, ''), text);
   if (!out) throw new Error('empty translation');
   return out;
 }
