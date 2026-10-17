@@ -4,9 +4,25 @@ Discord bot bridging a Finnish and an English channel. Messages in the source
 (Finnish) channel are translated **Finnish → English** and posted to the dest
 channel via a webhook that mimics the original author; English passes through
 unchanged. Messages in the dest (English) channel are forwarded to the source
-channel as-is, the same way. Translation via the OpenAI API.
+channel as-is, the same way. Attachments are carried over in both directions.
+Translation via the OpenAI API.
 
-See [SPEC.md](./SPEC.md) for the full design.
+The translation prompt is tuned for a Finnish [Riftbound](https://riftbound.leagueoflegends.com)
+TCG community (game terms stay in English). For another community, edit
+`SYSTEM_PROMPT` in `src/translate.ts`.
+
+## Behavior
+
+- **⚠️ prefix** = forwarded untranslated: the API failed or timed out, the reply
+  was truncated, or a cost guard kicked in (over 30 translations/user/minute,
+  or 50+ queued). Check the logs for which.
+- Messages with nothing to translate (only mentions, emoji, links, attachments)
+  skip the API. Mentions never ping on reposted copies.
+- Attachments over the server's upload limit are posted as links (expire ~24h).
+  Stickers, edits, deletes and reply context are not carried over.
+- Bots and webhooks are ignored in both channels (this also prevents loops).
+- Each direction has its own queue and keeps its order; past 200 queued, new
+  messages are dropped (flood guard).
 
 ## Setup
 
@@ -14,9 +30,15 @@ See [SPEC.md](./SPEC.md) for the full design.
    - `DISCORD_TOKEN` — bot token
    - `OPENAI_API_KEY`
    - `GUILD_ID` — the server the bot runs in (slash commands register here)
-2. Discord Developer Portal → your app → **Bot** → enable **Message Content
-   Intent**. Invite with scopes `bot applications.commands` and permissions
-   *Manage Webhooks* + *Send Messages*.
+2. Discord Developer Portal → your app:
+   - **Bot**: enable **Message Content Intent**. To keep the bot private, turn
+     off **Public Bot** (first set **Installation → Install Link** to *None*,
+     or Discord refuses to save).
+   - **OAuth2 → URL Generator**: scopes `bot` + `applications.commands`;
+     permissions *View Channels*, *Send Messages*, *Manage Webhooks*. Open the
+     URL and pick your server (needs Manage Server, and the permissions you grant).
+3. `GUILD_ID`: enable Developer Mode (User Settings → Advanced), right-click the
+   server → **Copy Server ID**.
 
 ## Run
 
@@ -67,6 +89,11 @@ npm test             # node:test, no framework
 npm run typecheck    # tsc --noEmit
 ```
 
-Pure logic (skip rules, message splitting, preamble stripping), the config
-store, and the serial queue are unit-tested. Discord/OpenAI I/O is thin glue
-verified at the seams.
+Pure logic (routing, message splitting, preamble stripping, rate limiting,
+translatable-text detection), the config store and opt-outs, and the serial
+queue are unit-tested. Discord/OpenAI I/O is thin glue verified manually —
+see [`test/messages.md`](./test/messages.md) for a message checklist.
+
+## License
+
+[MIT](./LICENSE)
