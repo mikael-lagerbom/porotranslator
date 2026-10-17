@@ -1,7 +1,7 @@
-import { Client, GatewayIntentBits, type TextChannel, Events, REST, Routes } from 'discord.js';
+import { Client, GatewayIntentBits, type TextChannel, Events, MessageType, REST, Routes } from 'discord.js';
 import OpenAI from 'openai';
 import { openConfigStore } from './db.ts';
-import { shouldSkip, sanitizeUsername } from './logic.ts';
+import { shouldSkip, sanitizeUsername, hasTranslatableText } from './logic.ts';
 import { SerialQueue } from './queue.ts';
 import { translate } from './translate.ts';
 import { sendAsAuthor } from './webhook.ts';
@@ -20,14 +20,21 @@ const store = openConfigStore(DB_PATH);
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 const queue = new SerialQueue();
 
+// Message only: discord.js errors can carry request URLs, which embed webhook tokens.
+const errText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
 });
 
 client.once(Events.ClientReady, async (c) => {
-  const rest = new REST().setToken(DISCORD_TOKEN);
-  await rest.put(Routes.applicationGuildCommands(c.user.id, GUILD_ID), { body: commandDefs });
-  console.log(`Ready as ${c.user.tag}. Registered ${commandDefs.length} commands to guild ${GUILD_ID}.`);
+  try {
+    const rest = new REST().setToken(DISCORD_TOKEN);
+    await rest.put(Routes.applicationGuildCommands(c.user.id, GUILD_ID), { body: commandDefs });
+    console.log(`Ready as ${c.user.tag}. Registered ${commandDefs.length} commands to guild ${GUILD_ID}.`);
+  } catch (err) {
+    console.error(`Ready as ${c.user.tag}, but command registration failed (check GUILD_ID and applications.commands scope): ${errText(err)}`);
+  }
 });
 
 client.on(Events.InteractionCreate, async (i) => {
@@ -35,11 +42,12 @@ client.on(Events.InteractionCreate, async (i) => {
   try {
     await handleCommand(i, store);
   } catch (err) {
-    console.error('command error', err);
+    console.error(`command ${i.commandName} failed: ${errText(err)}`);
   }
 });
 
 client.on(Events.MessageCreate, (msg) => {
+  if (msg.type !== MessageType.Default && msg.type !== MessageType.Reply) return; // system messages (thread created, pins, …)
   // Cheap filter at enqueue time; config is re-read at run time inside the task.
   if (shouldSkip({ authorIsBot: msg.author.bot, channelId: msg.channelId, content: msg.content }, store.get())) return;
 
@@ -54,12 +62,14 @@ client.on(Events.MessageCreate, (msg) => {
       return;
     }
 
-    let text: string;
-    try {
-      text = await translate(openai, cfg.model, msg.content);
-    } catch (err) {
-      console.error('translation failed, forwarding original', err);
-      text = `⚠️ ${msg.content}`;
+    let text = msg.content; // only mentions/emoji/URLs → forward as-is, no API call
+    if (hasTranslatableText(msg.content)) {
+      try {
+        text = await translate(openai, cfg.model, msg.content);
+      } catch (err) {
+        console.error(`translation failed for message ${msg.id} (model ${cfg.model}), forwarding original: ${errText(err)}`);
+        text = `⚠️ ${msg.content}`;
+      }
     }
 
     const username = sanitizeUsername(msg.member?.displayName ?? msg.author.username, 'porotranslator');
@@ -67,7 +77,7 @@ client.on(Events.MessageCreate, (msg) => {
       await sendAsAuthor(dest as TextChannel, { username, avatarURL: msg.author.displayAvatarURL() }, text);
     } catch (err) {
       // Retry already happened inside sendAsAuthor; this is a real drop.
-      console.error(`DROPPED message ${msg.id} from ${username}: send failed after retry`, err);
+      console.error(`DROPPED message ${msg.id} from ${username}: send failed after retry: ${errText(err)}`);
     }
   });
 });

@@ -21,19 +21,29 @@ export function shouldSkip(msg: IncomingMessage, cfg: Config): boolean {
   return false;
 }
 
-/** Split text into chunks no longer than `limit`, preferring newline boundaries. */
+/** Split text into chunks no longer than `limit`, preferring newline, then space boundaries. */
 export function splitMessage(text: string, limit: number): string[] {
-  if (text.length <= limit) return [text];
   const chunks: string[] = [];
   let rest = text;
   while (rest.length > limit) {
     let cut = rest.lastIndexOf('\n', limit);
-    if (cut <= 0) cut = limit; // no newline in range → hard split
+    if (cut <= 0) cut = rest.lastIndexOf(' ', limit);
+    if (cut <= 0) {
+      cut = limit; // no boundary in range → hard split
+      if (/[\uD800-\uDBFF]/.test(rest[cut - 1])) cut--; // don't cut a surrogate pair (emoji) in half
+    }
     chunks.push(rest.slice(0, cut));
-    rest = rest.slice(rest[cut] === '\n' ? cut + 1 : cut);
+    rest = rest.slice(/[\n ]/.test(rest[cut]) ? cut + 1 : cut);
   }
-  if (rest.length) chunks.push(rest);
-  return chunks;
+  chunks.push(rest);
+  return chunks.filter((c) => c.trim().length > 0); // Discord rejects blank messages
+}
+
+const NON_TEXT_RE = /<a?:\w+:\d+>|<(@[!&]?|#|\/[\w -]+:)\d+>|<t:\d+(:\w)?>|https?:\/\/\S+/g;
+
+/** True if anything is left to translate once mentions, emoji, timestamps and URLs are removed. */
+export function hasTranslatableText(text: string): boolean {
+  return /\p{L}{2,}/u.test(text.replace(NON_TEXT_RE, ''));
 }
 
 const PREAMBLE_RE = /^\s*(here is (the )?translation|translation|translated text)\s*:\s*/i;

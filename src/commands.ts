@@ -1,5 +1,6 @@
 import {
   ChannelType,
+  MessageFlags,
   type ChatInputCommandInteraction,
   PermissionFlagsBits,
   SlashCommandBuilder,
@@ -38,34 +39,37 @@ export const commandDefs = [
 ];
 
 export async function handleCommand(i: ChatInputCommandInteraction, store: ConfigStore): Promise<void> {
+  // Default permissions are overridable per guild; enforce at runtime too.
+  if (!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild))
+    return void i.reply({ content: '❌ Requires Manage Server.', flags: MessageFlags.Ephemeral });
   switch (i.commandName) {
     case 'set-source': {
       const id = i.options.getChannel('channel', true).id;
       if (id === store.get().destChannel)
-        return void i.reply({ content: '❌ Source and destination must differ.', ephemeral: true });
+        return void i.reply({ content: '❌ Source and destination must differ.', flags: MessageFlags.Ephemeral });
       store.set('sourceChannel', id);
-      return void i.reply({ content: '✅ Source channel set.', ephemeral: true });
+      return void i.reply({ content: '✅ Source channel set.', flags: MessageFlags.Ephemeral });
     }
     case 'set-dest': {
       const id = i.options.getChannel('channel', true).id;
       if (id === store.get().sourceChannel)
-        return void i.reply({ content: '❌ Source and destination must differ.', ephemeral: true });
+        return void i.reply({ content: '❌ Source and destination must differ.', flags: MessageFlags.Ephemeral });
       store.set('destChannel', id);
-      return void i.reply({ content: '✅ Destination channel set.', ephemeral: true });
+      return void i.reply({ content: '✅ Destination channel set.', flags: MessageFlags.Ephemeral });
     }
     case 'set-model': {
       store.set('model', i.options.getString('model', true));
-      return void i.reply({ content: '✅ Model updated.', ephemeral: true });
+      return void i.reply({ content: '✅ Model updated.', flags: MessageFlags.Ephemeral });
     }
     case 'toggle': {
       const next = !store.get().enabled;
       store.set('enabled', next);
-      return void i.reply({ content: next ? '▶️ Translation enabled.' : '⏸️ Translation disabled.', ephemeral: true });
+      return void i.reply({ content: next ? '▶️ Translation enabled.' : '⏸️ Translation disabled.', flags: MessageFlags.Ephemeral });
     }
     case 'status': {
       const c = store.get();
       return void i.reply({
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         content:
           `**Translator status**\n` +
           `Enabled: ${c.enabled ? 'yes' : 'no'}\n` +

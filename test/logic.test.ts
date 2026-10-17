@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shouldSkip, splitMessage, stripPreamble, sanitizeUsername } from '../src/logic.ts';
+import { shouldSkip, splitMessage, stripPreamble, sanitizeUsername, hasTranslatableText } from '../src/logic.ts';
 
 // --- shouldSkip -------------------------------------------------------------
 
@@ -99,4 +99,35 @@ test('removes Discord-reserved substrings', () => {
 test('falls back when nothing usable remains', () => {
   assert.equal(sanitizeUsername('   ', 'fallback'), 'fallback');
   assert.equal(sanitizeUsername('clyde', 'fallback'), 'fallback');
+});
+
+test('never emits a whitespace-only chunk', () => {
+  const chunks = splitMessage('a'.repeat(2000) + '\n\n\n' + 'b'.repeat(2000), 2000);
+  assert.ok(chunks.every((c) => c.trim().length > 0 && c.length <= 2000));
+  assert.equal(chunks.join('').replace(/\n/g, ''), 'a'.repeat(2000) + 'b'.repeat(2000));
+});
+
+test('splits on a space when there is no newline', () => {
+  const chunks = splitMessage('word '.repeat(500), 2000);
+  assert.ok(chunks.every((c) => c.length <= 2000 && !c.startsWith(' ')));
+  assert.ok(chunks[0].endsWith('word'));
+});
+
+test('does not cut an emoji in half on a hard split', () => {
+  const chunks = splitMessage('a'.repeat(1999) + '😀' + 'b', 2000);
+  assert.equal(chunks[0], 'a'.repeat(1999));
+  assert.ok(chunks[1].startsWith('😀'));
+});
+
+// --- hasTranslatableText ----------------------------------------------------
+
+test('detects real text', () => {
+  assert.equal(hasTranslatableText('moi kaikki'), true);
+  assert.equal(hasTranslatableText('<@123> mikä deck?'), true);
+});
+
+test('ignores messages with only mentions, emoji, timestamps and links', () => {
+  assert.equal(hasTranslatableText('<@123> <@&45> <#67> <:poro:89> <a:dance:10>'), false);
+  assert.equal(hasTranslatableText('https://example.com/cards/deflect <t:1700000000:R>'), false);
+  assert.equal(hasTranslatableText('😀 !!'), false);
 });
