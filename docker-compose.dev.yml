@@ -1,0 +1,7 @@
+# Dev overlay (npm run dev): .env.dev overrides .env, runs in the foreground, no auto-restart.
+services:
+  porotranslator:
+    restart: "no"
+    env_file:
+      - .env
+      - .env.dev

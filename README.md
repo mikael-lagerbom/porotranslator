@@ -23,13 +23,19 @@ See [SPEC.md](./SPEC.md) for the full design.
 ```bash
 npm install          # builds the better-sqlite3 native addon
 npm start            # node runs the TypeScript directly (Node 24+)
-npm run dev          # same, but .env.dev overrides .env (e.g. a dev bot token)
 ```
 
-Docker:
+Docker (detached, auto-restarts on crash/reboot via `restart: unless-stopped`):
 
 ```bash
-docker compose up -d --build
+npm run prod         # = docker compose up -d --build; logs: docker compose logs -f
+```
+
+Dev (separate compose project, foreground, no auto-restart; `.env.dev` overrides
+`.env`, e.g. a dev bot token, test `GUILD_ID` and `DB_PATH=./data/dev.db`):
+
+```bash
+npm run dev
 ```
 
 Config persists in SQLite under `./data/` (mounted volume in Docker).
