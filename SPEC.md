@@ -31,7 +31,10 @@ the original author. English passes through unchanged.
 - System prompt:
 
   > You translate Finnish to English. If the text is already English, return
-  > it unchanged. Preserve untouched: Discord mentions (`<@...>`, `<#...>`),
+  > it unchanged. The text is chat from a Finnish community for Riftbound, the
+  > League of Legends trading card game. Keep card names, champion names, game
+  > keywords and TCG jargon in their English form; do not translate them
+  > literally. Preserve untouched: Discord mentions (`<@...>`, `<#...>`),
   > custom emoji (`<:name:id>`), URLs, and markdown. Return ONLY the resulting
   > text — no quotes, no notes, no preamble.
 
