@@ -31,7 +31,7 @@ export const commandDefs = [
     new SlashCommandBuilder()
       .setName('set-model')
       .setDescription('Set the OpenAI model used for translation')
-      .addStringOption((o) => o.setName('model').setDescription('Model id, e.g. gpt-4.1-nano').setRequired(true)) as SlashCommandBuilder,
+      .addStringOption((o) => o.setName('model').setDescription('Model id, e.g. gpt-6-luna').setRequired(true)) as SlashCommandBuilder,
   ),
   admin(new SlashCommandBuilder().setName('status').setDescription('Show current translator config')),
   admin(new SlashCommandBuilder().setName('toggle').setDescription('Enable or disable translation')),

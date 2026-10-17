@@ -36,7 +36,7 @@ Config persists in SQLite under `./data/` (mounted volume in Docker).
 
 - `/set-source #channel` — where Finnish is read
 - `/set-dest #channel` — where English is posted
-- `/set-model <id>` — default `gpt-4.1-nano`; bump to `gpt-5.4-mini` if quality lacks
+- `/set-model <id>` — default `gpt-6-luna`; bump to `gpt-6.1-sol` if quality lacks
 - `/toggle` — pause/resume without redeploy
 - `/status` — show current config
 

@@ -4,7 +4,7 @@ import { shouldSkip, splitMessage, stripPreamble, sanitizeUsername } from '../sr
 
 // --- shouldSkip -------------------------------------------------------------
 
-const cfg = { sourceChannel: 'SRC', destChannel: 'DST', model: 'gpt-4.1-nano', enabled: true };
+const cfg = { sourceChannel: 'SRC', destChannel: 'DST', model: 'gpt-6-luna', enabled: true };
 
 test('skips messages from bots', () => {
   assert.equal(shouldSkip({ authorIsBot: true, channelId: 'SRC', content: 'moi' }, cfg), true);

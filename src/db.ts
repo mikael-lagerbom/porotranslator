@@ -4,7 +4,7 @@ import type { Config } from './logic.ts';
 const DEFAULTS: Config = {
   sourceChannel: null,
   destChannel: null,
-  model: 'gpt-4.1-nano',
+  model: 'gpt-6-luna',
   enabled: true,
 };
 

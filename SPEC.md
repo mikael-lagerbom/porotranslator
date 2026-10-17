@@ -26,7 +26,7 @@ the original author. English passes through unchanged.
 
 ### Translation call
 
-- Default model `gpt-4.1-nano`, settable via `/set-model`.
+- Default model `gpt-6-luna`, settable via `/set-model`.
 - `temperature: 0`.
 - System prompt:
 
@@ -59,7 +59,7 @@ Runtime-settable, persisted. Per-deployment DB (dev/prod are separate deploys).
 |-----|-----|-------|
 | `source_channel` | `/set-source #chan` | |
 | `dest_channel` | `/set-dest #chan` | |
-| `model` | `/set-model <name>` | default `gpt-4.1-nano` |
+| `model` | `/set-model <name>` | default `gpt-6-luna` |
 | `enabled` | `/toggle` | pause without redeploy |
 
 Secrets stay in `.env`, never bot-settable: `DISCORD_TOKEN`, `OPENAI_API_KEY`,
@@ -83,8 +83,8 @@ Secrets stay in `.env`, never bot-settable: `DISCORD_TOKEN`, `OPENAI_API_KEY`,
 
 ## Cost
 
-`gpt-4.1-nano` $0.10/$0.40 per 1M tokens. Chat messages tiny → fractions of a
-cent per thousand. Bump to `gpt-5.4-mini` via `/set-model` if quality lacks.
+`gpt-6-luna` $0.10/$0.50 per 1M tokens. Chat messages tiny → fractions of a
+cent per thousand. Bump to `gpt-6.1-sol` via `/set-model` if quality lacks.
 
 ## Explicitly out of scope (v1)
 
