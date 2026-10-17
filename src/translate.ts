@@ -15,14 +15,14 @@ const SYSTEM_PROMPT =
   'Return ONLY the resulting text, without the <msg> tags — no quotes, no notes, no preamble.';
 
 const TIMEOUT_MS = 30_000;
-const MAX_OUTPUT_TOKENS = 2048; // ~2× a max-length Discord message; caps runaway output
+const MAX_OUTPUT_TOKENS = 4096; // includes reasoning tokens on reasoning models; caps runaway output
 
 /** Translate text via OpenAI. Throws on failure (caller forwards original + ⚠️). */
 export async function translate(client: OpenAI, model: string, text: string): Promise<string> {
   const res = await client.chat.completions.create(
     {
       model,
-      temperature: 0,
+      // No temperature: reasoning models (gpt-6-luna) reject anything but the default.
       max_completion_tokens: MAX_OUTPUT_TOKENS,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
