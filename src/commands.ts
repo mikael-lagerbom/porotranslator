@@ -40,11 +40,12 @@ export const commandDefs = [
   new SlashCommandBuilder().setName('optin').setDescription('Let the translator process and repost your messages again').toJSON(),
 ];
 
-export async function handleCommand(i: ChatInputCommandInteraction, store: ConfigStore): Promise<void> {
+// Replies are returned, not voided, so a failed reply (e.g. expired interaction) reaches the caller's catch.
+export async function handleCommand(i: ChatInputCommandInteraction, store: ConfigStore): Promise<unknown> {
   if (i.commandName === 'optout' || i.commandName === 'optin') {
     const out = i.commandName === 'optout';
     store.setOptedOut(i.user.id, out);
-    return void i.reply({
+    return i.reply({
       content: out
         ? '✅ Opted out. Your messages will no longer be sent for translation or reposted. Use /optin to undo.'
         : '✅ Opted in. Your messages will be translated and forwarded again.',
@@ -53,8 +54,8 @@ export async function handleCommand(i: ChatInputCommandInteraction, store: Confi
   }
   // Default permissions are overridable per guild; enforce at runtime too.
   if (!i.inCachedGuild() || !i.memberPermissions.has(PermissionFlagsBits.ManageGuild))
-    return void i.reply({ content: '❌ Requires Manage Server.', flags: MessageFlags.Ephemeral });
-  const deny = (content: string) => void i.reply({ content: `❌ ${content}`, flags: MessageFlags.Ephemeral });
+    return i.reply({ content: '❌ Requires Manage Server.', flags: MessageFlags.Ephemeral });
+  const deny = (content: string) => i.reply({ content: `❌ ${content}`, flags: MessageFlags.Ephemeral });
   const me = i.guild.members.me!;
   switch (i.commandName) {
     case 'set-source':
@@ -69,20 +70,20 @@ export async function handleCommand(i: ChatInputCommandInteraction, store: Confi
       if (!ch.permissionsFor(me).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ManageWebhooks]))
         return deny(`I need View Channel and Manage Webhooks in ${ch}.`);
       store.set(isSource ? 'sourceChannel' : 'destChannel', ch.id);
-      return void i.reply({ content: `✅ ${isSource ? 'Source' : 'Destination'} channel set.`, flags: MessageFlags.Ephemeral });
+      return i.reply({ content: `✅ ${isSource ? 'Source' : 'Destination'} channel set.`, flags: MessageFlags.Ephemeral });
     }
     case 'set-model': {
       store.set('model', i.options.getString('model', true));
-      return void i.reply({ content: '✅ Model updated.', flags: MessageFlags.Ephemeral });
+      return i.reply({ content: '✅ Model updated.', flags: MessageFlags.Ephemeral });
     }
     case 'toggle': {
       const next = !store.get().enabled;
       store.set('enabled', next);
-      return void i.reply({ content: next ? '▶️ Translation enabled.' : '⏸️ Translation disabled.', flags: MessageFlags.Ephemeral });
+      return i.reply({ content: next ? '▶️ Translation enabled.' : '⏸️ Translation disabled.', flags: MessageFlags.Ephemeral });
     }
     case 'status': {
       const c = store.get();
-      return void i.reply({
+      return i.reply({
         flags: MessageFlags.Ephemeral,
         content:
           `**Translator status**\n` +

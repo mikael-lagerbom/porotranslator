@@ -52,7 +52,9 @@ with a `⚠️` marker prefix, and log the error. Never drop a message.
 
 Cost guards: over 30 messages/user/minute, or a backlog of 50+ queued messages,
 the message is forwarded untranslated with `⚠️` instead of calling the API.
-Output capped at 4096 tokens (reasoning included).
+Output capped at 8192 tokens (reasoning included). Either queue past 200
+pending drops new messages (flood/raid). Attachments over the server's upload
+limit (by boost tier) are linked, not downloaded.
 
 ### Edge cases (v1)
 

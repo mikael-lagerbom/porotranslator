@@ -15,10 +15,10 @@ const SYSTEM_PROMPT =
   'Return ONLY the resulting text, without the <msg> tags — no quotes, no notes, no preamble.';
 
 const TIMEOUT_MS = 30_000;
-const MAX_OUTPUT_TOKENS = 4096; // includes reasoning tokens on reasoning models; caps runaway output
+const MAX_OUTPUT_TOKENS = 8192; // includes reasoning tokens on reasoning models; caps runaway output
 
 /** Translate text via OpenAI. Throws on failure (caller forwards original + ⚠️). */
-export async function translate(client: OpenAI, model: string, text: string): Promise<string> {
+export async function translate(client: OpenAI, model: string, text: string, signal?: AbortSignal): Promise<string> {
   const res = await client.chat.completions.create(
     {
       model,
@@ -29,7 +29,7 @@ export async function translate(client: OpenAI, model: string, text: string): Pr
         { role: 'user', content: `<msg>${text}</msg>` },
       ],
     },
-    { timeout: TIMEOUT_MS, maxRetries: 1 }, // serial queue: a long retry chain stalls every message behind it
+    { timeout: TIMEOUT_MS, maxRetries: 1, signal }, // serial queue: a long retry chain stalls every message behind it
   );
   const choice = res.choices[0];
   if (choice?.finish_reason !== 'stop') throw new Error(`incomplete translation (finish_reason: ${choice?.finish_reason})`);

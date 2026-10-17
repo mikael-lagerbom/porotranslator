@@ -153,3 +153,8 @@ test('rate limiter allows max calls per window, per key, then resets', () => {
 test('still strips the preamble when the source merely starts with a label', () => {
   assert.equal(stripPreamble('Translation: Note: the card is banned', 'Huom: kortti on kielletty'), 'Note: the card is banned');
 });
+
+test('truncates usernames without splitting an emoji or leaving trailing spaces', () => {
+  assert.equal(sanitizeUsername('a'.repeat(79) + '😀b'), 'a'.repeat(79) + '😀');
+  assert.equal(sanitizeUsername('Matti' + ' '.repeat(80) + 'x'), 'Matti');
+});

@@ -15,7 +15,8 @@ if (!DISCORD_TOKEN || !OPENAI_API_KEY || !GUILD_ID) {
 
 // Cost guards: past these, messages are still forwarded, just untranslated.
 const MAX_PER_USER = 30; // translations per user per minute
-const MAX_BACKLOG = 50; // per queue: translations past this go out untranslated, forwards are dropped
+const MAX_BACKLOG = 50; // queued translations before new ones go out untranslated to catch up
+const MAX_QUEUE = 200; // per queue: past this, new messages are dropped (flood/raid)
 
 const store = openConfigStore(DB_PATH);
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
@@ -25,6 +26,7 @@ const queues = { translate: new SerialQueue(), forward: new SerialQueue() };
 const pending = () => queues.translate.pending + queues.forward.pending;
 const allowUser = createRateLimiter(MAX_PER_USER, 60_000);
 let stopping = false;
+const shutdownSignal = new AbortController();
 
 // Message only: discord.js errors can carry request URLs, which embed webhook tokens.
 const errText = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -68,6 +70,7 @@ client.on(Events.MessageCreate, (msg) => {
     name: a.name,
     description: a.description,
     spoiler: a.spoiler || a.flags.has(AttachmentFlags.IsSpoiler), // Discord now flags spoilers instead of prefixing the name
+    size: a.size,
   }));
   const incoming = { authorIsBot: msg.author.bot, channelId: msg.channelId, content: msg.content, hasAttachments: files.length > 0 };
   // Cheap filter at enqueue time; config is re-read at run time inside the task.
@@ -78,12 +81,13 @@ client.on(Events.MessageCreate, (msg) => {
   const translatable = initial.translate && hasTranslatableText(msg.content);
   const throttled = translatable && (!allowUser(msg.author.id) || queues.translate.pending >= MAX_BACKLOG);
 
-  if (!initial.translate && queues.forward.pending >= MAX_BACKLOG) {
-    console.warn(`forward backlog full: dropping message ${msg.id}`); // flood/raid in the dest channel
+  const queue = queues[initial.translate ? 'translate' : 'forward'];
+  if (queue.pending >= MAX_QUEUE) {
+    console.warn(`queue full: dropping message ${msg.id}`);
     return;
   }
 
-  queues[initial.translate ? 'translate' : 'forward'].push(async () => {
+  queue.push(async () => {
     const cfg = store.get(); // fresh: honor /toggle, /set-model, /set-dest made while queued
     // Re-checked: config or the author's opt-out may have changed while queued.
     const r = route(incoming, cfg);
@@ -103,7 +107,7 @@ client.on(Events.MessageCreate, (msg) => {
         text = `⚠️ ${msg.content}`;
       } else {
         try {
-          text = await translate(openai, cfg.model, msg.content);
+          text = await translate(openai, cfg.model, msg.content, shutdownSignal.signal);
         } catch (err) {
           console.error(`translation failed for message ${msg.id} (model ${cfg.model}), forwarding original: ${errText(err)}`);
           text = `⚠️ ${msg.content}`;
@@ -113,7 +117,7 @@ client.on(Events.MessageCreate, (msg) => {
 
     const username = sanitizeUsername(msg.member?.displayName ?? msg.author.username);
     try {
-      await sendAsAuthor(target as TextChannel, { username, avatarURL: msg.author.displayAvatarURL() }, text, files);
+      await sendAsAuthor(target as TextChannel, { username, avatarURL: (msg.member ?? msg.author).displayAvatarURL() }, text, files);
     } catch (err) {
       console.error(`DROPPED message ${msg.id} from ${username}: send failed: ${errText(err)}`);
     }
@@ -125,6 +129,7 @@ const DRAIN_DEADLINE_MS = 40_000;
 async function shutdown(signal: string) {
   if (stopping) process.exit(1); // second signal: give up on draining
   stopping = true;
+  shutdownSignal.abort(); // in-flight translation → forwarded untranslated now instead of blocking the drain
   console.log(`${signal}: draining ${pending()} queued message(s)`);
   client.removeAllListeners(Events.MessageCreate);
   setTimeout(() => {

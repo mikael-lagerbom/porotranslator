@@ -78,7 +78,7 @@ export function sanitizeUsername(name: string): string {
   // Repeat: removing one reserved word can join others into a new one ("disDISCORDcord").
   let cleaned = name;
   for (let prev = ''; prev !== cleaned; ) [prev, cleaned] = [cleaned, cleaned.replace(RESERVED, '')];
-  cleaned = cleaned.trim().slice(0, 80);
+  cleaned = Array.from(cleaned.trim()).slice(0, 80).join('').trim(); // by code point: don't split an emoji
   return cleaned.length > 0 ? cleaned : 'porotranslator';
 }
 
