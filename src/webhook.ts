@@ -28,8 +28,9 @@ async function getWebhook(channel: TextChannel, refresh = false): Promise<Webhoo
 
 export interface Attachment {
   url: string;
-  name: string; // keeps a SPOILER_ prefix, so spoilered files stay spoilered
+  name: string;
   description: string | null;
+  spoiler: boolean;
 }
 
 /**
@@ -52,7 +53,7 @@ export async function sendAsAuthor(
   if (chunks.length === 0) chunks.push(''); // attachment-only message
   for (const [n, chunk] of chunks.entries()) {
     const last = n === chunks.length - 1;
-    const uploads = last ? files.map((f) => ({ attachment: f.url, name: f.name, description: f.description ?? undefined })) : [];
+    const uploads = last ? files.map(toUpload) : [];
     try {
       await send(channel, { ...base, content: chunk || undefined, files: uploads });
     } catch (err) {
@@ -77,6 +78,13 @@ async function send(channel: TextChannel, payload: WebhookMessageCreateOptions):
     await (await getWebhook(channel, true)).send(payload); // throws if it fails again
   }
 }
+
+// Uploads are still marked as spoilers by a SPOILER_ filename prefix.
+const toUpload = (f: Attachment) => ({
+  attachment: f.url,
+  name: `${f.spoiler ? 'SPOILER_' : ''}${f.name.replace(/^SPOILER_/, '')}`,
+  description: f.description ?? undefined,
+});
 
 const isGoneWebhook = (err: unknown) =>
   err instanceof DiscordAPIError &&

@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, type TextChannel, Events, MessageType, PermissionFlagsBits } from 'discord.js';
+import { AttachmentFlags, Client, GatewayIntentBits, type TextChannel, Events, MessageType, PermissionFlagsBits } from 'discord.js';
 import OpenAI from 'openai';
 import { openConfigStore } from './db.ts';
 import { route, sanitizeUsername, hasTranslatableText, createRateLimiter } from './logic.ts';
@@ -63,7 +63,12 @@ client.on(Events.InteractionCreate, async (i) => {
 
 client.on(Events.MessageCreate, (msg) => {
   if (msg.type !== MessageType.Default && msg.type !== MessageType.Reply) return; // system messages (thread created, pins, …)
-  const files = msg.attachments.map((a) => ({ url: a.url, name: a.name, description: a.description }));
+  const files = msg.attachments.map((a) => ({
+    url: a.url,
+    name: a.name,
+    description: a.description,
+    spoiler: a.spoiler || a.flags.has(AttachmentFlags.IsSpoiler), // Discord now flags spoilers instead of prefixing the name
+  }));
   const incoming = { authorIsBot: msg.author.bot, channelId: msg.channelId, content: msg.content, hasAttachments: files.length > 0 };
   // Cheap filter at enqueue time; config is re-read at run time inside the task.
   const initial = route(incoming, store.get());
