@@ -44,3 +44,17 @@ test('ignores a malformed row instead of throwing', () => {
   assert.equal(cfg.model, 'gpt-6-luna'); // bad row falls back to default
   assert.equal(cfg.sourceChannel, '123'); // good rows still load
 });
+
+test('persists opt-outs across a reopen and can undo them', () => {
+  const path = tmpDb();
+  const store = openConfigStore(path);
+  store.setOptedOut('u1', true);
+  store.setOptedOut('u2', true);
+  store.setOptedOut('u2', false);
+  assert.equal(store.isOptedOut('u1'), true);
+  store.close();
+
+  const reopened = openConfigStore(path);
+  assert.equal(reopened.isOptedOut('u1'), true);
+  assert.equal(reopened.isOptedOut('u2'), false);
+});

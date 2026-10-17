@@ -44,6 +44,11 @@ from an older image that ran as root and created `config.db` as root).
 - `/toggle` — pause/resume without redeploy
 - `/status` — show current config
 
+For everyone (no permissions needed):
+
+- `/optout` — the bot ignores your messages: not sent to OpenAI, not reposted
+- `/optin` — undo
+
 ## Dev
 
 ```bash

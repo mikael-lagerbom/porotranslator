@@ -175,4 +175,5 @@ Loppujen lopuksi sijoituin neljänneksi ja sain kaksi boosteria palkinnoksi. Iso
 - **Rate limit:** 11 short Finnish messages within a minute → the 11th arrives untranslated with ⚠️.
 - **Attachment only:** an image or sticker with no text → nothing forwarded.
 - **Reply:** reply to a message with `Joo, sama` → translated (no reply context yet, so "Yeah, same").
+- **Opt-out:** `/optout`, send a Finnish message → nothing forwarded; `/optin` → translated again.
 - **Toggle:** `/toggle` off, send a message → nothing forwarded; `/toggle` on again.

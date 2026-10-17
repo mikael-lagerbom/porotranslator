@@ -7,7 +7,7 @@ import {
 } from 'discord.js';
 import type { ConfigStore } from './db.ts';
 
-// All config commands require Manage Server.
+// Config commands require Manage Server; /optout and /optin are for everyone.
 const admin = (b: SlashCommandBuilder) =>
   b.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild).toJSON();
 
@@ -36,9 +36,21 @@ export const commandDefs = [
   ),
   admin(new SlashCommandBuilder().setName('status').setDescription('Show current translator config')),
   admin(new SlashCommandBuilder().setName('toggle').setDescription('Enable or disable translation')),
+  new SlashCommandBuilder().setName('optout').setDescription('Stop the translator from processing or reposting your messages').toJSON(),
+  new SlashCommandBuilder().setName('optin').setDescription('Let the translator process and repost your messages again').toJSON(),
 ];
 
 export async function handleCommand(i: ChatInputCommandInteraction, store: ConfigStore): Promise<void> {
+  if (i.commandName === 'optout' || i.commandName === 'optin') {
+    const out = i.commandName === 'optout';
+    store.setOptedOut(i.user.id, out);
+    return void i.reply({
+      content: out
+        ? '✅ Opted out. Your messages will no longer be sent for translation or reposted. Use /optin to undo.'
+        : '✅ Opted in. Your messages will be translated again.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
   // Default permissions are overridable per guild; enforce at runtime too.
   if (!i.inCachedGuild() || !i.memberPermissions.has(PermissionFlagsBits.ManageGuild))
     return void i.reply({ content: '❌ Requires Manage Server.', flags: MessageFlags.Ephemeral });

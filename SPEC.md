@@ -16,7 +16,8 @@ the original author. English passes through unchanged.
 
 1. Bot listens to `messageCreate`.
 2. Skip if: author is a bot (incl. self), channel ≠ configured source, text
-   empty/whitespace-only, or translation disabled (`/toggle`).
+   empty/whitespace-only, translation disabled (`/toggle`), or the author has
+   opted out (`/optout`, stored in an `optouts` table).
 3. Enqueue message on a **serial queue** (one at a time → dest order matches
    source).
 4. Send text to OpenAI. Single call does detect + translate + passthrough.
@@ -75,7 +76,9 @@ Secrets stay in `.env`, never bot-settable: `DISCORD_TOKEN`, `OPENAI_API_KEY`,
 
 `/set-source`, `/set-dest`, `/set-model`, `/status`, `/toggle`.
 
-- Admin-gated: `setDefaultMemberPermissions(ManageGuild)`.
+- Admin-gated: `setDefaultMemberPermissions(ManageGuild)` + runtime check.
+- `/optout`, `/optin`: open to everyone. Opted-out users' messages are not
+  sent to OpenAI or reposted. Past reposts are not removed.
 - **Guild-scoped** registration (instant update), registered to `GUILD_ID`
   from `.env` on boot.
 

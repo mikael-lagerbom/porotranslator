@@ -53,7 +53,7 @@ client.on(Events.InteractionCreate, async (i) => {
 client.on(Events.MessageCreate, (msg) => {
   if (msg.type !== MessageType.Default && msg.type !== MessageType.Reply) return; // system messages (thread created, pins, …)
   // Cheap filter at enqueue time; config is re-read at run time inside the task.
-  if (shouldSkip({ authorIsBot: msg.author.bot, channelId: msg.channelId, content: msg.content }, store.get())) return;
+  if (shouldSkip({ authorIsBot: msg.author.bot, channelId: msg.channelId, content: msg.content }, store.get()) || store.isOptedOut(msg.author.id)) return;
 
   // Decided at arrival so a spammer can't burn through the limit while queued. Only API-bound messages count.
   const translatable = hasTranslatableText(msg.content);
@@ -62,7 +62,8 @@ client.on(Events.MessageCreate, (msg) => {
   // Serial queue → dest order matches source order.
   queue.push(async () => {
     const cfg = store.get(); // fresh: honor /toggle, /set-model, /set-dest made while queued
-    if (shouldSkip({ authorIsBot: msg.author.bot, channelId: msg.channelId, content: msg.content }, cfg)) return;
+    // Re-checked: config or the author's opt-out may have changed while queued.
+    if (shouldSkip({ authorIsBot: msg.author.bot, channelId: msg.channelId, content: msg.content }, cfg) || store.isOptedOut(msg.author.id)) return;
 
     const dest = await client.channels.fetch(cfg.destChannel!).catch(() => null);
     if (!dest?.isTextBased() || dest.isDMBased()) {
